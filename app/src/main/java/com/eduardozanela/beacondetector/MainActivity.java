@@ -59,6 +59,11 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
         // Bind this class to ranging
         altBeaconBeaconManager.bind(this);
 
+        // Period between scans it will wait 5 seconds to scan again
+        altBeaconBeaconManager.setForegroundBetweenScanPeriod(5000);
+        // Period between background scans it will wait 1 minute to scan again
+        altBeaconBeaconManager.setBackgroundBetweenScanPeriod(60000);
+
         // Simply constructing this class and holding a reference to it in your custom Application class
         // enables auto battery saving of about 60%
         backgroundPowerSaver = new BackgroundPowerSaver(this);
@@ -68,12 +73,14 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
     protected void onResume() {
         super.onResume();
         SystemRequirementsChecker.checkWithDefaultDialogs(this);
+        // not needed to scan in background
         //altBeaconBeaconManager.bind(this);
     }
 
     @Override
     public void onPause() {
         super.onPause();
+        // not needed to scan in background
         //altBeaconBeaconManager.unbind(this);
     }
 
@@ -88,10 +95,6 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
         }
         // Add ranging notifier
         altBeaconBeaconManager.addRangeNotifier(this);
-
-        // Period between scans it will wait 5 seconds to scan again
-        altBeaconBeaconManager.setForegroundBetweenScanPeriod(5000);
-        altBeaconBeaconManager.setBackgroundBetweenScanPeriod(60000);
     }
 
     @Override
@@ -103,28 +106,28 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
             altBeaconBeaconManager.setForegroundBetweenScanPeriod(30000);
         }
 
-        Log.d(TAG, "Period between scan " + altBeaconBeaconManager.getForegroundBetweenScanPeriod());
-        Log.d(TAG, "Period between scan background " + altBeaconBeaconManager.getBackgroundBetweenScanPeriod());
         Position position = new Position();
 
         for (org.altbeacon.beacon.Beacon beacon: beacons) {
-            //if (beacon.getServiceUuid() == 0xfeaa && beacon.getBeaconTypeCode() == 0x00) {
+            // if is a eddystone protocol
+            if (beacon.getServiceUuid() == 0xfeaa && beacon.getBeaconTypeCode() == 0x00) {
 
-            // Add beacon to the list to show later
-            listBeacons.add(beacon);
+                // Add beacon to the list to show later
+                listBeacons.add(beacon);
 
-            // This is a Eddystone-UID frame
-            Identifier namespaceId = beacon.getId1();
-            Identifier instanceId = beacon.getId2();
+                // This is a Eddystone-UID frame
+                Identifier namespaceId = beacon.getId1();
+                Identifier instanceId = beacon.getId2();
 
-            Log.d(TAG, "I see a beacon transmitting namespace id: "+namespaceId+
-                    " and instance id: "+instanceId+
-                    " approximately "+beacon.getDistance()+" meters away.");
+                Log.d(TAG, "I see a beacon transmitting namespace id: " + namespaceId +
+                        " and instance id: " + instanceId +
+                        " approximately " + beacon.getDistance() + " meters away.");
 
-            sendBeaconToApi(beacon, position);
-
+                sendBeaconToApi(beacon, position);
+            }
         }
-        inflateListView(new ArrayList<Beacon>(beacons));
+        // Put list on layout
+        inflateListView(new ArrayList<>(beacons));
     }
 
     private void sendBeaconToApi(Beacon beacon, Position position) {
@@ -133,6 +136,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
         String instanceId = beacon.getId2().toString();
         distance.setUuid(namespace.concat(";").concat(instanceId));
         distance.setDistance(beacon.getDistance());
+        position.addDistance(distance);
     }
 
     private void inflateListView(List<Beacon> list) {

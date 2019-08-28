@@ -1,11 +1,12 @@
 package com.eduardozanela.beacondetector.model;
 
+import java.io.Serializable;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class Position {
+public class Position implements Serializable {
 
     private String id;
     private String lat;

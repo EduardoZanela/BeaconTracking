@@ -51,7 +51,7 @@ public class Position implements Serializable {
     }
 
     public void addDistance(Distance distance){
-        if (distances.isEmpty()){
+        if (distances == null){
             this.distances = new ArrayList<>();
         }
         this.distances.add(distance);

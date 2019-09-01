@@ -2,14 +2,21 @@ package com.eduardozanela.beacondetector;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.util.Log;
+import android.view.View;
 import android.widget.ListView;
 
 import com.eduardozanela.beacondetector.adapter.BeaconListAdapter;
+import com.eduardozanela.beacondetector.entities.DistanceEntity;
+import com.eduardozanela.beacondetector.entities.PositionEntity;
 import com.eduardozanela.beacondetector.model.Distance;
 import com.eduardozanela.beacondetector.model.Position;
+import com.eduardozanela.beacondetector.scheduler.SendDataToApiScheduler;
 import com.estimote.coresdk.common.requirements.SystemRequirementsChecker;
 
 import org.altbeacon.beacon.Beacon;
@@ -39,6 +46,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
     private static final String TAG = "EDDYSTONE_BEACON";
     private static final String IBEACON = "m:0-3=4c000215,i:4-19,i:20-21,i:22-23,p:24-24";
     private static final String ESTIMOTE_DEFAULT = "m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24";
+    private static final Integer SCHEDULER_ID = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +75,9 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
         // Simply constructing this class and holding a reference to it in your custom Application class
         // enables auto battery saving of about 60%
         backgroundPowerSaver = new BackgroundPowerSaver(this);
+
+        // Schedule job to send data to api
+        scheduleJob();
     }
 
     @Override
@@ -106,7 +117,7 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
             altBeaconBeaconManager.setForegroundBetweenScanPeriod(30000);
         }
 
-        Position position = new Position();
+        PositionEntity position = new PositionEntity();
 
         for (org.altbeacon.beacon.Beacon beacon: beacons) {
             // if is a eddystone protocol
@@ -123,20 +134,23 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
                         " and instance id: " + instanceId +
                         " approximately " + beacon.getDistance() + " meters away.");
 
-                sendBeaconToApi(beacon, position);
+                saveBeaconToDatabase(beacon, position);
             }
         }
+        //position.save();
+        Log.d(TAG, "id: " + position);
         // Put list on layout
         inflateListView(new ArrayList<>(beacons));
     }
 
-    private void sendBeaconToApi(Beacon beacon, Position position) {
-        Distance distance = new Distance();
+    private void saveBeaconToDatabase(Beacon beacon, PositionEntity position) {
         String namespace = beacon.getId1().toString();
         String instanceId = beacon.getId2().toString();
-        distance.setUuid(namespace.concat(";").concat(instanceId));
-        distance.setDistance(beacon.getDistance());
-        position.addDistance(distance);
+        DistanceEntity dEntity = new DistanceEntity();
+        dEntity.setDistance(beacon.getDistance());
+        dEntity.setUuid(namespace.concat(";").concat(instanceId));
+        //dEntity.save();
+        //position.getDistances().add(dEntity);
     }
 
     private void inflateListView(List<Beacon> list) {
@@ -145,6 +159,29 @@ public class MainActivity extends AppCompatActivity implements BeaconConsumer, R
 
         listView.setDivider(null);
         listView.setDividerHeight(0);
+    }
+
+    public void scheduleJob() {
+        ComponentName componentName = new ComponentName(this, SendDataToApiScheduler.class);
+        JobInfo info = new JobInfo.Builder(SCHEDULER_ID, componentName)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_UNMETERED)
+                .setPersisted(true)
+                .setPeriodic(1 * 60 * 1000)
+                .build();
+
+        JobScheduler scheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
+        int resultCode = scheduler.schedule(info);
+        if (resultCode == JobScheduler.RESULT_SUCCESS) {
+            Log.d(TAG, "Job scheduled");
+        } else {
+            Log.d(TAG, "Job scheduling failed");
+        }
+    }
+
+    public void cancelJob() {
+        JobScheduler scheduler = (JobScheduler) getSystemService(JOB_SCHEDULER_SERVICE);
+        scheduler.cancel(SCHEDULER_ID);
+        Log.d(TAG, "Job cancelled");
     }
 
 }
